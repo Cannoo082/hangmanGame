@@ -306,6 +306,15 @@ int main() {
 
     startGame(users,  buffer, *game);
 
+    if(!users.empty())
+    {
+        for(auto& user : users)
+        {
+            delete user;
+        }
+    }
+    delete game;
+
     close(socket_fd);
 
     return 0;
