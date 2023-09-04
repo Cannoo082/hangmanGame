@@ -229,6 +229,11 @@ void startGame(std::vector<User*>& users, char* buffer, Hangman& hangman)
             sendPlayerInfoThread.join();
             sendWaiterInfoThread.join();
         }
+        if (hangman.get_guessed_part().find('_') == std::string::npos)
+        {
+            cout << GAME_OVER << endl;
+            break;
+        }
         if (users.empty()) break;
     }
 }
