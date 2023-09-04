@@ -14,19 +14,20 @@
 #define PROJ2SOCKETCPP_HANGMAN_H
 
 using std::string;
+using std::vector;
 
 class Hangman
 {
 public:
     Hangman(string word, std::vector<User*>& players);
-    //size_t get_letter_count() const { return m_letterCount; };
     string get_already_guessed() const;
     string get_guessed_part() const { return m_guessedPart; };
     uint8_t increment_round() { return ++m_round; };
     bool process_guessed_letter(char letter, int socket_fd);
     void update_guessed_letters(char letter);
+    vector<User*>& get_players() { return m_players; };
 private:
-    std::vector<User*>& m_players;
+    vector<User*>& m_players;
     uint8_t m_round {};
     string m_guessedPart;
     const string m_word;

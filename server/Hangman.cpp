@@ -3,6 +3,7 @@
 
 
 using std::string;
+using std::vector;
 
 
 string Hangman::get_already_guessed() const
@@ -67,7 +68,7 @@ void Hangman::update_guessed_letters(char letter)
     }
 }
 
-Hangman::Hangman(std::string word, std::vector<User*>& players) : m_word{std::move(word)}, m_letterCount{m_word.length()}, m_players{players}
+Hangman::Hangman(string word, vector<User*>& players) : m_word{std::move(word)}, m_letterCount{m_word.length()}, m_players{players}
 {
     for (int i{} ; i < m_letterCount; ++i)
     {

@@ -15,13 +15,35 @@
 #define MAX_BACKLOG 10
 #define LISTENING_PORT 9191
 #define BUFFER_SIZE 1024
+// Server Connection Messages:
+#define BIND_SUCCESSFUL "Bind Successful"
+#define BIND_FAILED "Bind Failed, Error: "
+#define LISTENING_SUCCESSFUL "Listening Successful"
+#define LISTENING_FAILED "Listening Failed, Error: "
+#define CLIENT_CONNECTION_FAILED "Client Connection Failed, Error: "
+#define LISTEN "Listening on port: "
+
+// Client Connection Messages:
 #define WELCOME_MSG "Welcome to the Hangman game! "
-#define INVALID_PLAYER_COUNT "Invalid number of players. "
-#define ASK_PLAYER_COUNT "Please input the number of players: "
 #define WAITING_FOR_OTHER_PLAYERS "Waiting for other players to connect..."
 #define ASK_PASSW "Please input your password: "
+
+// ASK FOR WORD
+#define ASK_FOR_WORD " Please enter a word to play hangman! "
+// START GAME
+#define START_GAME "Starting game with word: "
+
+// INPUT VALIDATION
+#define ONLY_ONE_LETTER "Please enter only one letter"
+#define NOT_A_LETTER "Please enter a valid letter"
+#define ALREADY_GUESSED "This letter is already guessed"
+
+// PLAYER COUNT
+#define INVALID_PLAYER_COUNT "Invalid number of players. "
+#define ASK_PLAYER_COUNT "Please input the number of players: "
+
+// GAME MESSAGES
 #define YOUR_TURN "It's your turn to guess a letter!"
-#define ALREADY_GUESSED "This letter is already guessed!"
 #define CORRECT_GUESS "Correct guess!"
 #define INCORRECT_GUESS "Incorrect guess!"
 #define ALREADY_GUESSED_LETTERS "Already guessed letters: "
@@ -111,7 +133,7 @@ void acceptIncoming(std::vector<User*>& users, char* buffer, int& player_count, 
     }
 }
 
-void sendEveryoneRoundInfo(std::vector<User*>& users, char* buffer, Hangman& hangman)
+void sendEveryoneRoundInfo(char* buffer, Hangman& hangman)
 {
     string roundInfo = "Round Info: \n";
     roundInfo += "Word: " + hangman.get_guessed_part() + "\n";
@@ -119,7 +141,7 @@ void sendEveryoneRoundInfo(std::vector<User*>& users, char* buffer, Hangman& han
 
     buffer = const_cast<char*>(roundInfo.c_str());
 
-    for (auto& user : users)
+    for (auto& user : hangman.get_players())
     {
         send(user->m_userSessionFD, buffer, BUFFER_SIZE, 0);
     }
@@ -138,17 +160,17 @@ void sendPlayerInfo(User* user, char* buffer, Hangman& hangman)
         recv(user->m_userSessionFD, buffer, BUFFER_SIZE, 0);
         if (strlen(buffer) > 1)
         {
-            send(user->m_userSessionFD, "Please enter only one letter", sizeof("Please enter only one letter"), 0);
+            send(user->m_userSessionFD, ONLY_ONE_LETTER, sizeof(ONLY_ONE_LETTER), 0);
             continue;
         }
-        else if(!isalpha(buffer[0])) // not a letter
+        else if(!isalpha(buffer[0]))
         {
-            send(user->m_userSessionFD, "Please enter a valid letter", sizeof("Please enter a valid letter"), 0);
+            send(user->m_userSessionFD, NOT_A_LETTER, sizeof(NOT_A_LETTER), 0);
             continue;
         }
         else if (hangman.get_already_guessed().find(buffer[0]) != std::string::npos)
         {
-            send(user->m_userSessionFD, "This letter is already guessed", sizeof("This letter is already guessed"), 0);
+            send(user->m_userSessionFD, ALREADY_GUESSED, sizeof(ALREADY_GUESSED), 0);
             continue;
         }
         else
@@ -171,7 +193,7 @@ void sendPlayerInfo(User* user, char* buffer, Hangman& hangman)
     }
 }
 
-void sendWaiterInfo(User* user, std::vector<User*>& users, char* buffer)
+void sendWaiterInfo(User* user, std::vector<User*>& users)
 {
     for (auto& localUser : users)
     {
@@ -191,9 +213,9 @@ void startGame(std::vector<User*>& users, char* buffer, Hangman& hangman)
     {
         for (auto& user : users)
         {
-            sendEveryoneRoundInfo(users, buffer, hangman);
+            sendEveryoneRoundInfo(buffer, hangman);
             std::thread sendPlayerInfoThread(sendPlayerInfo, user, buffer, std::ref(hangman));
-            std::thread sendWaiterInfoThread(sendWaiterInfo, user, std::ref(users), buffer);
+            std::thread sendWaiterInfoThread(sendWaiterInfo, user, std::ref(users));
             sendPlayerInfoThread.join();
             sendWaiterInfoThread.join();
         }
@@ -203,7 +225,7 @@ void startGame(std::vector<User*>& users, char* buffer, Hangman& hangman)
 
 
 int main() {
-    signal(SIGPIPE, SIG_IGN);
+    signal(SIGPIPE, SIG_IGN); // ignore sigpipe
     int socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 
     struct sockaddr_in addr{};
@@ -213,28 +235,28 @@ int main() {
 
     int bindResult = bind(socket_fd, (struct sockaddr *) &addr, sizeof(addr));
 
-    if (bindResult == 0) cout << "Bind Successful" << endl;
+    if (bindResult == 0) cout << BIND_SUCCESSFUL << endl;
     else
     {
-        cerr << "Bind Failed, Error Code: " << errno << endl;
+        cerr << BIND_FAILED << errno << endl;
         return -1;
     }
 
     int isListening = listen(socket_fd, MAX_BACKLOG);
 
-    if (isListening == 0) cout << "Listening Successful" << endl;
+    if (isListening == 0) cout << LISTENING_SUCCESSFUL << endl;
     else
     {
-        cerr << "Listening Failed, Error: " << errno << endl;
+        cerr << LISTENING_FAILED << errno << endl;
         return -1;
     }
 
     string hangmanWord;
 
-    cout << "Listening on port " << LISTENING_PORT << endl;
-    cout << WELCOME_MSG << " Please enter the word to play hangman! " << endl;
+    cout << LISTEN << LISTENING_PORT << endl;
+    cout << WELCOME_MSG << ASK_FOR_WORD << endl;
     cin >> hangmanWord;
-    cout << "Starting game with word: " << hangmanWord << endl;
+    cout << START_GAME << hangmanWord << endl;
 
 
     int current_user_count {};
@@ -259,12 +281,11 @@ int main() {
                                   &clientAddressSize);
         if(clientSocket == -1)
         {
-            cerr << "Client Connection Failed, Error: " << errno << endl;
+            cerr << CLIENT_CONNECTION_FAILED << errno << endl;
             continue;
         }
 
         std::thread acceptIncomingThread(acceptIncoming, std::ref(users), buffer, std::ref(player_count), std::ref(current_user_count), clientAddress, clientSocket);
-        //threads.push_back(std::move(acceptIncomingThread));
         acceptIncomingThread.join();
     } while(player_count <= 0 || (current_user_count)!= player_count);
 
