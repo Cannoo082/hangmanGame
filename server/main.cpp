@@ -54,6 +54,7 @@
 #define GAME_FULL "Game is full"
 #define PLEASE_WAIT "Please wait..."
 #define GAME_OVER "Game Over!"
+#define ELIMINATED "You have been eliminated!"
 
 
 
@@ -213,12 +214,22 @@ void startGame(std::vector<User*>& users, char* buffer, Hangman& hangman)
     {
         for (auto& user : users)
         {
+            if (user == nullptr) continue;
+            if(user->get_remaining_guesses() == 0)
+            {
+                send(user->m_userSessionFD, ELIMINATED, sizeof(ELIMINATED), 0);
+                users.erase(users.begin() + user->get_id());
+                delete user;
+                break;
+            }
+            if (users.empty()) break;
             sendEveryoneRoundInfo(buffer, hangman);
             std::thread sendPlayerInfoThread(sendPlayerInfo, user, buffer, std::ref(hangman));
             std::thread sendWaiterInfoThread(sendWaiterInfo, user, std::ref(users));
             sendPlayerInfoThread.join();
             sendWaiterInfoThread.join();
         }
+        if (users.empty()) break;
     }
 }
 
